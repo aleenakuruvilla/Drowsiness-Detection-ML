@@ -13,9 +13,9 @@ app.use(cors());
 const JWT_SECRET =
   "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi78272jdsds039[]]pou89ywe";
 
-mongoose.connect('mongodb+srv://akhiljose:QLeXvX9q96D9m2mo@carapp.ntg3p.mongodb.net/?retryWrites=true&w=majority&appName=CarAPP')
+mongoose.connect('mongodb+srv://aleenavaithra:gZhcGdwzKbTh4DMs@drowsy.7srtb.mongodb.net/?retryWrites=true&w=majority&appName=drowsy')
         .then(() => console.log('connected to database'))
-        .catch( ()=>console.log("not connected"))
+        .catch( (e)=>console.log(e))
 
 
 
