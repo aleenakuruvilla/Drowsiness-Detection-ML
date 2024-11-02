@@ -176,7 +176,6 @@ const SignUpScreen = () => {
 
           {aadhaarImage ? (
             <View style={styles.imagePreviewContainer}>
-              <Image source={{ uri: aadhaarImage }} style={styles.aadhaarImage} />
               <TouchableOpacity onPress={handleAadhaarPick} style={styles.changeImageButton}>
                 <Text style={styles.changeImageText}>Change Image</Text>
               </TouchableOpacity>
