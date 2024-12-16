@@ -7,6 +7,9 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./driver-cert.json");
+
 // Initialize Express app
 const app = express();
 app.use(express.json());
@@ -19,6 +22,10 @@ const JWT_SECRET = "hvdvay6ert72839289()aiyg8t87qt72393293883uhefiuh78ttq3ifi782
 mongoose.connect('mongodb+srv://aleenavaithra:gZhcGdwzKbTh4DMs@drowsy.7srtb.mongodb.net/?retryWrites=true&w=majority&appName=drowsy')
   .then(() => console.log('Connected to MongoDB'))
   .catch(e => console.log('Database connection error:', e));
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 // Set up multer for image uploads
 const storage = multer.diskStorage({
@@ -154,6 +161,44 @@ app.post('/update-password', async (req, res) => {
     console.error('Error updating password:', error);
     res.status(500).json({ status: 'error', message: 'An error occurred' });
   }
+});
+
+app.post("/send-notification", (req, res) => {
+  const {
+    title,
+    body,
+    senderId,
+    userId,
+    profileImage,
+    confirmation,
+    targetToken,
+  } = req.body;
+
+  const message = {
+    notification: {
+      title,
+      body,
+    },
+    data: {
+      senderId,
+      userId,
+      profileImage,
+      confirmation,
+    },
+    token: targetToken,
+  };
+
+  admin
+    .messaging()
+    .send(message)
+    .then((response) => {
+      console.log("Successfully sent message:", response);
+      res.status(200).send(response);
+    })
+    .catch((error) => {
+      console.error("Error sending message:", error);
+      res.status(500).send(error);
+    });
 });
 
 // Optional: Uncomment to allow user deletion
