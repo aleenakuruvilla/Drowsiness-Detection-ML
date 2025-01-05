@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import Feather from 'react-native-vector-icons/Feather';
 import Error from 'react-native-vector-icons/MaterialIcons';
+import messaging from "@react-native-firebase/messaging";
 
 const SignUpScreen = () => {
   const [name, setName] = useState('');
@@ -62,7 +63,7 @@ const SignUpScreen = () => {
     }
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!name || !nameVerify) {
       ShowToast('error', 'Please enter a valid name.');
       return;
@@ -80,10 +81,17 @@ const SignUpScreen = () => {
       return;
     }
 
+    const fcmToken = await messaging().getToken();
+    if(!fcmToken) {
+      ShowToast('error', 'Something went wrong, please try again.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('name', name);
     formData.append('email', email);
     formData.append('mobile', mobile);
+    formData.append('fcmToken', fcmToken);
     formData.append('aadhaarImage', {
       uri: aadhaarImage,
       type: 'image/jpeg', // or 'image/png' based on your image type
