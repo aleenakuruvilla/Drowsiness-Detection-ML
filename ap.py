@@ -3,7 +3,11 @@ import numpy as np
 import dlib
 from imutils import face_utils
 import time
+import requests
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 # Initialize camera
 cap = cv2.VideoCapture(0)
 
@@ -24,6 +28,10 @@ sleep_start_time = None
 drowsy_start_time = None
 yawn_start_time = None
 
+user_token = None
+user_data = None
+BACKEND_URL = os.environ['BACKEND_URL']
+
 def compute(ptA, ptB):
     """Calculate Euclidean distance between two points."""
     return np.linalg.norm(ptA - ptB)
@@ -42,7 +50,44 @@ def calculate_mar(mouth):
     C = compute(mouth[12], mouth[16])  # Horizontal distance
     return (A + B) / (2.0 * C)
 
-while True:
+def authenticate(email, password):
+    try:
+        response = requests.post(BACKEND_URL + '/login-user', json={ 'email': email, 'password': password })
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(e)
+
+def send_drowsy_notification(user):
+    try:
+        data = {
+            'targetToken': user['fcmToken'],
+            'title': "Drowsiness Detected!",
+            'body': "You seem sexy. Please take a break or rest to stay safe. Tap here to check for nearby drivers.",
+            'userId': user['_id'],
+        }
+        response = requests.post(BACKEND_URL + '/send-drowsy-alert', json=data)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(e)
+
+def stop_vehicle():
+    try:
+        response = requests.get('http://' + vehicle_ip + '/sleep')
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(e)
+
+vehicle_ip = input("Enter vehicle ip: ")
+user_email = input("Enter your email: ")
+user_password = input("Enter your password: ")
+
+user_data = authenticate(user_email, user_password)
+send_drowsy_notification(user_data['user'])
+
+while False:
     # Capture frame from camera
     ret, frame = cap.read()
     if not ret:
@@ -81,6 +126,7 @@ while True:
                 color = (255, 0, 0)
                 drowsy_start_time = None
                 yawn_start_time = None
+                stop_vehicle()
         elif avg_ear < EAR_THRESHOLD_HALF:
             if drowsy_start_time is None:
                 drowsy_start_time = current_time
@@ -89,6 +135,7 @@ while True:
                 color = (0, 0, 255)
                 sleep_start_time = None
                 yawn_start_time = None
+                send_drowsy_notification(user_data)
         elif mar > MAR_THRESHOLD_YAWN:
             if yawn_start_time is None:
                 yawn_start_time = current_time
