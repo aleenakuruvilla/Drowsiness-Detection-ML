@@ -6,7 +6,7 @@ import { Home } from './src/Screens/Home';
 import UserDetails from './src/Screens/Admin/AdminUsers.js';
 import AdminHome from './src/Screens/Admin/adminHome.js';
 import ProfileScreen from './src/Screens/Profile.js';
-import NotificationScreen from './src/Screens/NotificationScreen.js';
+import Notifications from './src/Screens/Notifications.js';
 import Toast from 'react-native-toast-message';
 import { NavigationContainer, useNavigation, DrawerActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -15,9 +15,10 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import Icon from 'react-native-vector-icons/Entypo';
 import DrawerContent from './DrawerContent.js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
-
+import { useUser } from './src/context/UserContext.js';
+import NotificationService from './src/services/NotificationService.js';
+import DriverList from './src/Screens/DriverList.js';
+import LocationView from './src/Screens/LocationView.js';
 
 const StackNav = () => {
   const Stack = createNativeStackNavigator();
@@ -45,7 +46,9 @@ const StackNav = () => {
       <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
+      <Stack.Screen name="Notifications" component={Notifications} />
+      <Stack.Screen name="DriverList" component={DriverList} />
+      <Stack.Screen name="LocationView" component={LocationView} />
     </Stack.Navigator>
   )
 }
@@ -95,16 +98,18 @@ return (
 }
 
 const App = () => {
+const { user, setUser } = useUser();
+const [isAdmin, setIsAdmin] = useState(false);
 
-  const Stack = createNativeStackNavigator();
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [userType, setUserType] = useState(false)
+  useEffect(() => {
+    NotificationService();
+  }, []);
 
   async function getData() {
-    const data = await AsyncStorage.getItem('isLoggedIn')
-    const userType1 = await AsyncStorage.getItem('userType')
-    setIsLoggedIn(data)
-    setUserType(userType1)
+    const userData = await AsyncStorage.getItem('user');
+    const adminStatus = await AsyncStorage.getItem('userType');
+    setUser(JSON.parse(userData));
+    setIsAdmin(adminStatus);
   }
 
   useEffect(() => {
@@ -112,38 +117,17 @@ const App = () => {
   }, [])
 
   return (
-
     <NavigationContainer>
-        {isLoggedIn && userType=="true" ?(
+        {user && isAdmin=="true" ?(
            <AdminStack/>
-         ) :isLoggedIn? (
+         ) :user? (
          <DrawerNav/>)
           :(
              <LoginNav/>
             )}
         <Toast/>
     </NavigationContainer>
-  )
-
-
-  const styles = StyleSheet.create({
-    container: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 16,
-      backgroundColor: '#f0f0f0',
-    },
-    toggleText: {
-      color: '#3498db',
-      textAlign: 'center',
-    },
-    errorText: {
-      color: 'red',
-      marginTop: 16,
-      textAlign: 'center',
-    },
-  });
+  );
 }
 
 export default App;

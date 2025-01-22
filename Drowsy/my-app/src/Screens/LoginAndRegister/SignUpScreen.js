@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import Feather from 'react-native-vector-icons/Feather';
 import Error from 'react-native-vector-icons/MaterialIcons';
-import messaging from "@react-native-firebase/messaging";
+import { SelectList } from 'react-native-dropdown-select-list';
 
 const SignUpScreen = () => {
   const [name, setName] = useState('');
@@ -15,8 +15,17 @@ const SignUpScreen = () => {
   const [emailVerify, setEmailVerify] = useState(false);
   const [mobile, setMobile] = useState('');
   const [mobileVerify, setMobileVerify] = useState(false);
+  const [password, setPassword] = useState('');
+  const [passwordVerify, setPasswordVerify] = useState(false);
   const [aadhaarImage, setAadhaarImage] = useState(null); // State for Aadhaar image
+  const [profileImage, setProfileImage] = useState(null);
+  const [gender, setGender] = useState('');
   const navigation = useNavigation();
+
+  const genderOptions = [
+    { key: '1', value: "Male" },
+    { key: '2', value: "Female" }
+  ]
 
   function handleName(e) {
     const nameVar = e.nativeEvent.text;
@@ -37,7 +46,13 @@ const SignUpScreen = () => {
     setMobileVerify(/[6-9]{1}[0-9]{9}/.test(mobileVar));
   }
 
-  // Open image picker for Aadhaar image selection
+  function handlePassword(e) {
+    const passwordVar = e.nativeEvent.text;
+    setPassword(passwordVar);
+    setPasswordVerify(passwordVar.length >= 8);
+  }
+
+  //  Open image picker for Aadhaar image selection
   const handleAadhaarPick = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -62,6 +77,31 @@ const SignUpScreen = () => {
       ShowToast('info', 'Image selection canceled');
     }
   };
+  
+  const handleProfilePick = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      ShowToast('error', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // Allow cropping
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // Check if the result has a valid URI
+      if (result.assets && result.assets.length > 0) {
+        setProfileImage(result.assets[0].uri); // Set the URI of the first asset
+      }
+    } else {
+      ShowToast('info', 'Image selection canceled');
+    }
+  };
 
   const handleSignUp = async () => {
     if (!name || !nameVerify) {
@@ -76,14 +116,12 @@ const SignUpScreen = () => {
       ShowToast('error', 'Please enter a valid mobile number.');
       return;
     }
-    if (!aadhaarImage) {
-      ShowToast('error', 'Please upload your Aadhaar card image.'); // Check for Aadhaar image
+    if (!password || !passwordVerify) {
+      ShowToast('error', 'Please enter a valid password.');
       return;
     }
-
-    const fcmToken = await messaging().getToken();
-    if(!fcmToken) {
-      ShowToast('error', 'Something went wrong, please try again.');
+    if (!aadhaarImage) {
+      ShowToast('error', 'Please upload your Aadhaar card image.'); // Check for Aadhaar image
       return;
     }
 
@@ -91,26 +129,33 @@ const SignUpScreen = () => {
     formData.append('name', name);
     formData.append('email', email);
     formData.append('mobile', mobile);
-    formData.append('fcmToken', fcmToken);
+    formData.append('password', password);
+    formData.append('gender', gender);
     formData.append('aadhaarImage', {
       uri: aadhaarImage,
       type: 'image/jpeg', // or 'image/png' based on your image type
       name: 'aadhaar.jpg', // Name for the file in the backend
     });
+    formData.append('profileImage', {
+      uri: profileImage,
+      type: 'image/jpeg',
+      name: 'profile.jpg',
+    });
 
     ShowToast('info', 'Processing your sign-up...');
-    axios.post(`${process.env.EXPO_PUBLIC_BACKEND}/register`, formData, {
+    axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/register`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
       .then((res) => {
-        if (res.data.status === "ok") {
+        if (res.data.status === "Ok") {
           ShowToast('success', 'Registration successful. Password will be sent after validation.');
           navigation.navigate('SignIn');
         } else {
           ShowToast('error', res.data.data);
         }
       })
-      .catch(() => ShowToast('error', "An error occurred"));
+      .catch((err) => {ShowToast('error', "An error occurred")
+        console.log(err)});
   };
 
   return (
@@ -182,17 +227,58 @@ const SignUpScreen = () => {
             )}
           </View>
 
-          {aadhaarImage ? (
-            <View style={styles.imagePreviewContainer}>
-              <TouchableOpacity onPress={handleAadhaarPick} style={styles.changeImageButton}>
-                <Text style={styles.changeImageText}>Change Image</Text>
-              </TouchableOpacity>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={[styles.textInput, { paddingRight: 40 }]}
+                value={password}
+                onChange={handlePassword}
+                placeholder="Enter your password"
+              />
+              {password.length > 0 && (passwordVerify ? (
+                <Feather name="check-circle" color="green" size={20} style={styles.icon} />
+              ) : (
+                <Error name="error" color="red" size={20} style={styles.icon} />
+              ))}
             </View>
+            {!passwordVerify && password.length > 0 && (
+              <Text style={styles.errorText}>Password should be minimum 8 characters.</Text>
+            )}
+          </View>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Gender</Text>
+            <View style={styles.inputContainer}>
+              <SelectList 
+                setSelected={(val) => setGender(val)} 
+                data={genderOptions} 
+                save="value" 
+              />
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row" }}>
+          {profileImage ? (
+              <TouchableOpacity onPress={handleProfilePick} style={styles.changeImageButton}>
+                <Text style={styles.changeImageText}>Change Profile</Text>
+              </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={handleProfilePick} style={styles.imagePicker}>
+              <Text>Upload Profile</Text>
+            </TouchableOpacity>
+          )}
+
+          {aadhaarImage ? (
+              <TouchableOpacity onPress={handleAadhaarPick} style={styles.changeImageButton}>
+                <Text style={styles.changeImageText}>Change Document</Text>
+              </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={handleAadhaarPick} style={styles.imagePicker}>
               <Text>Upload Document</Text>
             </TouchableOpacity>
           )}
+          </View>
 
           <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
             <Text style={styles.buttonText}>Sign Up</Text>
@@ -247,7 +333,8 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     marginVertical: 10,
-    backgroundColor: '#f0f0f0'
+    backgroundColor: '#f0f0f0',
+    marginLeft: 15,
   },
   changeImageButton: {
     backgroundColor: '#007BFF',
@@ -255,6 +342,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     marginVertical: 10,
+    marginLeft: 15,
   },
   changeImageText: {
     color: '#fff',

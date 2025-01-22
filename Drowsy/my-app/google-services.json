@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "272766528635",
+    "project_id": "drowsydriver-6388e",
+    "storage_bucket": "drowsydriver-6388e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272766528635:android:0f76800eceb9bc073686de",
+        "android_client_info": {
+          "package_name": "com.aleena.drowsydriver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOJMdRLO5bEM8cynQK_EgYLlpmFQdroIM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

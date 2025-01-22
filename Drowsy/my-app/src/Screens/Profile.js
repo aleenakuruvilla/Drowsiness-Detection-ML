@@ -32,7 +32,7 @@ function ProfileScreen(props) {
   const getData = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
-      const res = await axios.post(`${process.env.EXPO_PUBLIC_BACKEND}/userdata`, { token });
+      const res = await axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/userdata`, { token });
       setUserData(res.data.data);
     } catch (err) {
       console.error("Error fetching data", err);

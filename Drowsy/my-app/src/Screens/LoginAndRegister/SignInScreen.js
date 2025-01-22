@@ -4,8 +4,11 @@ import axios from 'axios';
 import { ShowToast } from '../../components/Toast.js';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from "@react-native-firebase/messaging";
+import { useUser } from '../../context/UserContext.js';
 
 export default function SignInScreen() {
+  const { setUser } = useUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -15,22 +18,37 @@ export default function SignInScreen() {
     ShowToast('info', 'Processing your sign-in...');
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
-    
-    axios.post(`${process.env.EXPO_PUBLIC_BACKEND}/login-user`, { email: trimmedEmail, password: trimmedPassword })
+
+    console.log("test: ", process.env.EXPO_PUBLIC_BACKEND_URL);
+ 
+    axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/login-user`, { email: trimmedEmail, password: trimmedPassword })
       .then(async (res) => {
-        if (res.data.status === "ok") {
+        if (res.data.status === "Ok") { 
+          const fcmToken = await messaging().getToken();
+          if(!fcmToken) {
+            ShowToast('error', 'Something went wrong, please try again.');
+            return;
+          }
+          console.log(fcmToken);
+          const fcmUpdateRes = await axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/update-fcm-token`, { email: trimmedEmail, fcmToken });
+          if (fcmUpdateRes.data.status !== "Ok") {
+            ShowToast('error', 'Something went wrong, please try again.');
+            return;
+          }
+
+          const userData = { ...res.data.user, fcmToken};
           ShowToast('success', "Welcome!!");
-          await AsyncStorage.setItem("token", res.data.data);
-          await AsyncStorage.setItem('isLoggedIn', JSON.stringify(true));
+          setUser(userData);
+          await AsyncStorage.setItem("token", res.data.token);
+          await AsyncStorage.setItem("user", JSON.stringify(userData));
           await AsyncStorage.setItem('userType', JSON.stringify(res.data.isadmin));
-          console.log(res.data.isadmin)
+
           if(res.data.isadmin){
             navigation.navigate('AdminHome');
           }
-          else{ 
+           else{ 
             navigation.navigate('Home');
           }
-  
         } 
         else {
           ShowToast('error', res.data.message );
@@ -38,6 +56,7 @@ export default function SignInScreen() {
       })
       .catch((err) => {
         ShowToast('error', "Invalid credentials");
+        console.log(err);
       });
   };
   

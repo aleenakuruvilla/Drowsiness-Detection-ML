@@ -7,11 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { useUser } from './src/context/UserContext';
 
 const DrawerList = [
     { icon: 'home-outline', label: 'Home', navigateTo: 'Home' },
     { icon: 'account-circle', label: 'Profile', navigateTo: 'Profile' },
-    { icon: 'bell-outline', label: 'NotificationScreen', navigateTo: 'NotificationScreen' },
+    { icon: 'bell-outline', label: 'Notifications', navigateTo: 'Notifications' },
 ];
 
 const DrawerLayout = ({ icon, label, navigateTo }) => {
@@ -39,53 +40,34 @@ const DrawerItems = () => {
 
 function DrawerContent(props) {
     const navigation = useNavigation();
-    const [userData, setUserData] = useState('');
+    const { user } = useUser();
 
-    useEffect(() => {
-        getData();
-    }, []);
-
-    const getData = async () => {
-        const token = await AsyncStorage.getItem('token');
-        axios.post(`${process.env.EXPO_PUBLIC_BACKEND}/userdata`, { token: token })
-            .then((res) => {
-                setUserData(res.data.data);
-            });
-    };
-
-    const signOut = () => {
-        AsyncStorage.setItem('isLoggedIn', '');
-        AsyncStorage.setItem('token', '');
+    const signOut = async () => {
+        await AsyncStorage.clear();
         navigation.navigate('SignIn');
-        AsyncStorage.setItem('userType', '');
     };
 
     return (
         <View style={styles.container}>
             <DrawerContentScrollView {...props}>
                 <View style={styles.drawerContent}>
-                    <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => getData()} // Refresh data on press
-                    >
                         <View style={styles.userInfoSection}>
                             <View style={styles.userInfo}>
                                 <Avatar.Image
                                     source={{
-                                        uri: 'https://example.com/profile-pic.png', // Replace with a valid URL or base64 string
+                                        uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${user.profileImage}`, // Replace with a valid URL or base64 string
                                     }}
                                     size={50}
                                     style={styles.avatar}
                                 />
                                 <View style={styles.userInfoText}>
-                                    <Title style={styles.title}>{userData.name}</Title>
+                                    <Title style={styles.title}>{user.name}</Title>
                                     <Text style={styles.caption} numberOfLines={1}>
-                                        {userData.email}
+                                        {user.email}
                                     </Text>
                                 </View>
                             </View>
                         </View>
-                    </TouchableOpacity>
                     <View style={styles.drawerSection}>
                         <DrawerItems />
                     </View>
