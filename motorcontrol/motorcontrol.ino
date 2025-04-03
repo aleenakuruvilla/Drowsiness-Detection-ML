@@ -1,7 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-// Replace with your network credentials
 const char* ssid     = "esp";
 const char* password = "12345678";
 
@@ -17,8 +16,8 @@ int motor2Pin1 = 33;
 int motor2Pin2 = 25; 
 int enable2Pin = 32;
 
-// Buzzer
 int buzzerPin = 15;
+int ledPin = 13;
 
 // Setting PWM properties
 const int freq = 30000;
@@ -115,15 +114,29 @@ void handleReverse() {
 }
 
 void handleSleep() {
-  Serial.pintln("Sleep");
+  Serial.println("Sleep");
   digitalWrite(buzzerPin, HIGH);
-  ledcWrite(enable1Pin, 10);
-  ledcWrite(enable2Pin, 10);
-  sleep(3000);
+  digitalWrite(ledPin, HIGH);
+  
+  for (int i = dutyCycle; i > 0; i -= 5) {
+    ledcWrite(enable1Pin, i);
+    ledcWrite(enable2Pin, i);
+    delay(100);
+  }
+  
+  digitalWrite(buzzerPin, LOW);
+
+  delay(1000);
+  digitalWrite(ledPin, LOW);
+  
   digitalWrite(motor1Pin1, LOW);
   digitalWrite(motor1Pin2, LOW);
   digitalWrite(motor2Pin1, LOW);
   digitalWrite(motor2Pin2, LOW);
+  
+  ledcWrite(enable1Pin, 0);
+  ledcWrite(enable2Pin, 0);
+  
   server.send(200);
 }
 
@@ -155,6 +168,8 @@ void setup() {
   pinMode(motor1Pin2, OUTPUT);
   pinMode(motor2Pin1, OUTPUT);
   pinMode(motor2Pin2, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
 
   ledcAttach(enable1Pin, freq, resolution);
   ledcAttach(enable2Pin, freq, resolution);
