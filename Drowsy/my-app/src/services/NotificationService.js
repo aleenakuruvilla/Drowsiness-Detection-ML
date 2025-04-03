@@ -26,6 +26,7 @@ const saveNotificationToDatabase = async (notification, data) => {
       senderId: data.senderId,
       profileImage: data.profileImage,
       confirmation: data.confirmation,
+      targetLocation: data.targetLocation,
       timestamp: Date.now(),
     });
   } catch (error) {

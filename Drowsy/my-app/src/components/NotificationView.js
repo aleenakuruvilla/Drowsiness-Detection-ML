@@ -7,9 +7,11 @@ import {
   ActivityIndicator,
   StyleSheet,
   Linking,
+  SafeAreaView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 import ShowToast from "../components/Toast";
 import { useUser } from "../context/UserContext";
 import { useNavigation } from "@react-navigation/native";
@@ -39,32 +41,33 @@ export default function NotificationView({ sender, setViewNotification }) {
     if (phoneNumber) {
       Linking.openURL(`tel:+91 ${phoneNumber}`);
     } else {
-      console.error("Phone number not available.");
+      ShowToast("error", "Phone number not available");
     }
   };
 
   const handleLocation = () => {
     setViewNotification(false);
-    navigation.navigate('LocationView', { target: senderData })
-  }
+    navigation.navigate("LocationView", { target: senderData });
+  };
 
   const findSenderData = async () => {
     try {
       setLoading(true);
       const senderRes = await axios.get(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/get-user-details/${sender.senderId}`,
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/get-user-details/${sender.senderId}`
       );
-      console.log("test ", senderRes);
       setSenderData(senderRes.data.data);
       setLoading(false);
-    } catch (error) { 
+    } catch (error) {
       console.error("Failed to fetch sender data ", error);
+      ShowToast("error", "Failed to load user information");
+      setLoading(false);
     }
   };
 
   const handleConfirmation = async (userId, status) => {
     try {
-      if(requestLoading) {
+      if (requestLoading) {
         return;
       }
       setRequestLoading(true);
@@ -104,7 +107,7 @@ export default function NotificationView({ sender, setViewNotification }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (res.status !== 200) {
@@ -124,190 +127,322 @@ export default function NotificationView({ sender, setViewNotification }) {
     }
   };
 
+  const handleClose = () => {
+    setViewNotification(false);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#e75f62" />
+        <ActivityIndicator size="large" color="#5dbea3" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      { senderData && (
-      <>
-      <Image source={{ uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${senderData.profileImage}` }} style={styles.image} />
-          <Text style={styles.name}>{senderData.name}</Text>
-          <Text style={styles.subText}>{senderData.gender}</Text>
-          {requestLoading ? (
-            <View style={styles.requestLoading}>
-              <ActivityIndicator size="large" color="#e75f62" />
-            </View>
-          ) : showCall ? (
-            <View style={{width: "100%"}}>
-              <TouchableOpacity
-                onPress={() => handleCall()}
-                style={{ width: "100%", alignItems: "center" }}
-              >
-                <View
-                  style={{
-                    ...styles.confirmationContainer,
-                    backgroundColor: "#5dbea3",
-                  }}
-                >
-                  <Text style={styles.buttonText}>Call Now</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleLocation()}
-                style={{ width: "100%", alignItems: "center" }}
-              >
-                <View
-                  style={{
-                    ...styles.confirmationContainer,
-                    backgroundColor: "#5dbea3",
-                  }}
-                >
-                  <Text style={styles.buttonText}>Location</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          ) : showRejectMsg ? (
-            <View style={styles.errorMsgContainer}>
-              <Text style={styles.errorText}>
-                Unfortunately, {senderData.name} is unable to support your
-                request at this time. Keep reaching out for help!
-              </Text>
-            </View>
-          ) : confirmation === "accepted" ? (
-            <View
-              style={{
-                ...styles.confirmationContainer,
-                backgroundColor: "#5dbea3",
-              }}
-            >
-              <Text style={styles.buttonText}>Accepted</Text>
-            </View>
-          ) : confirmation === "rejected" ? (
-            <View style={styles.confirmationContainer}>
-              <Text style={styles.buttonText}>Rejected</Text>
-            </View>
-          ) : (
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                onPress={() => handleConfirmation(sender.senderId, false)}
-              >
-                <View style={styles.buttonContainer}>
-                  <Text style={styles.buttonText}>Reject</Text>
-                </View>
-              </TouchableOpacity>
+    <SafeAreaView style={styles.modalOverlay}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+          <Ionicons name="close-circle" size={30} color="#999" />
+        </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => handleConfirmation(sender.senderId, true)}
-              >
-                <View
-                  style={{
-                    ...styles.buttonContainer,
-                    backgroundColor: "#5dbea3",
-                  }}
-                >
-                  <Text style={styles.buttonText}>Accept</Text>
+        {senderData && (
+          <View style={styles.contentContainer}>
+            <View style={styles.profileSection}>
+              <Image
+                source={{
+                  uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${senderData.profileImage}`,
+                }}
+                style={styles.image}
+              />
+              <View style={styles.badgeContainer}>
+                <Ionicons name="car-outline" size={16} color="white" />
+              </View>
+
+              <Text style={styles.name}>{senderData.name}</Text>
+              <View style={styles.infoChip}>
+                <Text style={styles.infoText}>{senderData.gender}</Text>
+              </View>
+
+              {sender.targetLocation && (
+                <View style={styles.destinationContainer}>
+                  <View style={styles.destinationIconContainer}>
+                    <Ionicons name="location" size={16} color="white" />
+                  </View>
+                  <Text style={styles.destinationText}>
+                    {sender.targetLocation}
+                  </Text>
                 </View>
-              </TouchableOpacity>
+              )}
             </View>
-          )}
-        </>
-      )}
-    </View>
+
+            {requestLoading ? (
+              <View style={styles.requestLoading}>
+                <ActivityIndicator size="large" color="#5dbea3" />
+                <Text style={styles.loadingText}>Processing request...</Text>
+              </View>
+            ) : showCall ? (
+              <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity
+                  onPress={handleCall}
+                  style={styles.actionButton}
+                >
+                  <Ionicons name="call" size={20} color="white" />
+                  <Text style={styles.actionButtonText}>Call Now</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleLocation}
+                  style={[styles.actionButton, { backgroundColor: "#5b7eea" }]}
+                >
+                  <Ionicons name="location" size={20} color="white" />
+                  <Text style={styles.actionButtonText}>View Location</Text>
+                </TouchableOpacity>
+              </View>
+            ) : showRejectMsg ? (
+              <View style={styles.messageContainer}>
+                <Ionicons name="alert-circle" size={30} color="#e75f62" />
+                <Text style={styles.messageText}>
+                  Unfortunately, {senderData.name} is unable to support your
+                  request at this time. Keep reaching out for help!
+                </Text>
+              </View>
+            ) : confirmation === "accepted" ? (
+              <View style={styles.confirmationContainer}>
+                <Ionicons name="checkmark-circle" size={40} color="#5dbea3" />
+                <Text style={styles.confirmationText}>Request Accepted</Text>
+              </View>
+            ) : confirmation === "rejected" ? (
+              <View style={styles.confirmationContainer}>
+                <Ionicons name="close-circle" size={40} color="#e75f62" />
+                <Text style={styles.confirmationText}>Request Rejected</Text>
+              </View>
+            ) : (
+              <View style={styles.decisionContainer}>
+                <Text style={styles.promptText}>
+                  Would you like to help {senderData.name} with their driving
+                  request?
+                </Text>
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    onPress={() => handleConfirmation(sender.senderId, false)}
+                    style={styles.rejectButton}
+                  >
+                    <Ionicons name="close" size={20} color="white" />
+                    <Text style={styles.buttonText}>Decline</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleConfirmation(sender.senderId, true)}
+                    style={styles.acceptButton}
+                  >
+                    <Ionicons name="checkmark" size={20} color="white" />
+                    <Text style={styles.buttonText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: "auto",
-    bottom: "25%",
-    width: "80%",
-    height: "50%",
-    padding: "20",
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    alignSelf: "center",
-    borderRadius: 20,
+  },
+  container: {
+    width: "85%",
+    borderRadius: 24,
     backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+    position: "relative",
+    overflow: "hidden",
+  },
+  closeButton: {
+    position: "absolute",
+    right: 15,
+    top: 15,
+    zIndex: 5,
+  },
+  contentContainer: {
+    padding: 25,
+    alignItems: "center",
+  },
+  profileSection: {
+    alignItems: "center",
+    marginBottom: 20,
   },
   image: {
-    height: 120,
-    width: 120,
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: "#e75f62",
-    marginBottom: 10,
+    height: 100,
+    width: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  badgeContainer: {
+    position: "absolute",
+    right: -5,
+    top: 10,
+    backgroundColor: "#5dbea3",
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
   },
   name: {
-    fontSize: 30,
-    fontWeight: "600",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 5,
   },
-  subText: {
-    fontSize: 22,
+  infoChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#f4f4f4",
+    borderRadius: 20,
+    marginTop: 5,
+  },
+  infoText: {
+    fontSize: 14,
+    color: "#555",
+  },
+  decisionContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  promptText: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
   },
   buttonRow: {
     flexDirection: "row",
-    width: "75%",
+    width: "100%",
     justifyContent: "space-between",
+    marginTop: 10,
   },
-  buttonContainer: {
-    width: 110,
-    padding: 15,
-    marginTop: 15,
+  rejectButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#e75f62",
-    borderRadius: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    width: "48%",
   },
-  confirmationContainer: {
-    width: "80%",
-    padding: 15,
-    marginTop: 15,
+  acceptButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#e75f62",
-    borderRadius: 10,
+    backgroundColor: "#5dbea3",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    width: "48%",
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "white",
-    fontWeight: "500",
-  },
-  greenLight: {
-    width: 10,
-    height: 10,
-    borderRadius: 50,
-    backgroundColor: "green",
-    marginRight: 5,
+    fontWeight: "600",
+    marginLeft: 5,
   },
   loadingContainer: {
-    flex: 1,
+    padding: 40,
     justifyContent: "center",
     alignItems: "center",
   },
   requestLoading: {
-    marginTop: 25,
+    padding: 20,
     justifyContent: "center",
     alignItems: "center",
   },
-  errorMsgContainer: {
-    width: "85%",
-    padding: 15,
+  loadingText: {
+    marginTop: 10,
+    color: "#666",
+    fontSize: 14,
+  },
+  actionButtonsContainer: {
+    width: "100%",
     marginTop: 15,
+  },
+  actionButton: {
+    flexDirection: "row",
+    backgroundColor: "#5dbea3",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginVertical: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "red",
-    borderRadius: 10,
   },
-  errorText: {
-    fontSize: 12,
+  actionButtonText: {
     color: "white",
-    fontWeight: "500",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 10,
+  },
+  messageContainer: {
+    backgroundColor: "#fff8f8",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#ffe8e8",
+  },
+  messageText: {
+    color: "#666",
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 20,
+  },
+  confirmationContainer: {
+    alignItems: "center",
+    padding: 20,
+  },
+  confirmationText: {
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  destinationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#fff8f0",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ffe0c0",
+  },
+  destinationIconContainer: {
+    backgroundColor: "#e75f62",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  destinationText: {
+    fontSize: 14,
+    color: "#e75f62",
+    fontWeight: "600",
   },
 });

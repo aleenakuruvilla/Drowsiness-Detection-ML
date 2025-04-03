@@ -1,365 +1,230 @@
-import { ScrollView, StyleSheet, Text, View, Image, BackHandler, Alert, RefreshControl } from 'react-native';
-import { Avatar } from 'react-native-paper';
-import React from 'react';
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import Check from 'react-native-vector-icons/Feather';
-import Back from 'react-native-vector-icons/Ionicons';
-import Gender from 'react-native-vector-icons/Foundation';
-import Mobile from 'react-native-vector-icons/Entypo';
-import Error from 'react-native-vector-icons/MaterialIcons';
-import Email from 'react-native-vector-icons/MaterialCommunityIcons';
-import Profession from 'react-native-vector-icons/AntDesign';
-import {DrawerActions, useNavigation} from '@react-navigation/native';
-import {useEffect, useState} from 'react';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useFocusEffect} from '@react-navigation/native';
-import Toast from 'react-native-toast-message'; 
-import { useUser } from '../context/UserContext';
+import React, { useCallback } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  BackHandler,
+  Alert,
+  ScrollView,
+} from "react-native";
+import { Avatar } from "react-native-paper";
+import { useFocusEffect } from "@react-navigation/native";
+import { useUser } from "../context/UserContext";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Foundation } from "@expo/vector-icons";
+import { Entypo } from "@expo/vector-icons";
+import { AntDesign } from "@expo/vector-icons";
 
-const Home = (props) => {
+const InfoItem = ({ icon, label, value, color }) => (
+  <View style={styles.infoItem}>
+    <View style={[styles.iconContainer, { backgroundColor: color }]}>
+      {icon}
+    </View>
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue} numberOfLines={1}>
+        {value || "Not provided"}
+      </Text>
+    </View>
+  </View>
+);
+
+const Home = () => {
   const { user } = useUser();
-  const [refreshing, setRefreshing] = useState(false);
 
-const handleBackPress = ()=>{
-  Alert.alert(
-    'Exit App','Are you sure you want to exit?',[
-      {
-       text:'Cancel',
-       onPress:()=>null,
-       style:'cancel'
-    },
-    {
-      text:'Exit',
-      onPress:()=>BackHandler.exitApp(),
-    },
-  ]);
-  return true;
-}
+  const handleBackPress = useCallback(() => {
+    Alert.alert(
+      "Exit App",
+      "Are you sure you want to exit?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Exit",
+          onPress: () => BackHandler.exitApp(),
+        },
+      ],
+      { cancelable: false }
+    );
+    return true;
+  }, []);
 
-useFocusEffect(
-  React.useCallback(()=>{
-    BackHandler.addEventListener("hardwareBackPress",handleBackPress)
-    return ()=>{
-      BackHandler.removeEventListener("hardwareBackPress",handleBackPress)
-    }
-
-  })
-)
-
-return (
-  <ScrollView
-  showsVerticalScrollIndicator={false}
->
-    <View>
-      <View style={{position: 'relative'}}>
-
-        <Image
-            width={100}
-            height={60}
-            resizeMode="contain"
-            style={{
-              marginTop: -150,
-            }}
-            source={require('../../assets/wave.png')}
-          />
-          </View>
-          <View style={{alignItems: 'center'}}>
-          <Avatar.Image
-            size={180}
-            style={styles.avatar}
-            source={{
-              uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${user.profileImage}` }}
-            />
-            </View>
-            <View style={{marginTop: -50}}>
-          <Text style={styles.nameText}>{user.name}</Text>
-        </View>
-
-        <View style={{marginTop: 20, marginHorizontal: 25}}>
-          <View style={styles.infoMain}>
-            <View style={styles.infoCont}>
-              <View style={[styles.infoIconCont, {backgroundColor: '#ff9500'}]}>
-                <Email name="email" size={24} style={{color: 'white'}} />
-              </View>
-              <View style={styles.infoText}>
-                <Text style={styles.infoSmall_Text}>Email</Text>
-                <Text style={styles.infoLarge_Text} numberOfLines={1}>
-                  {user.email}
-                  </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.infoMain}>
-            <View style={styles.infoCont}>
-              <View style={[styles.infoIconCont, {backgroundColor: '#0d7313'}]}>
-                <Gender
-                  name="torsos-male-female"
-                  size={28}
-                  color="blue"
-                  style={{color: 'white'}}
-                />
-              </View>
-              <View style={styles.infoText}>
-                <Text style={styles.infoSmall_Text}>Gender</Text>
-                <Text style={styles.infoLarge_Text}>
-                  {user.gender == '' ||
-                  user.gender == undefined ||
-                  user.gender == null
-                    ? ''
-                    : user.gender}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.infoMain}>
-            <View style={styles.infoCont}>
-              <View style={[styles.infoIconCont, {backgroundColor: '#774BBC'}]}>
-                <Profession name="profile" size={24} style={{color: 'white'}} />
-              </View>
-              <View style={styles.infoText}>
-                <Text style={styles.infoSmall_Text}>Profession</Text>
-                <Text style={styles.infoLarge_Text}>
-                  
-                  {user.profession == '' ||
-                  user.profession == undefined ||
-                  user.profession == null
-                    ? 'Driver'
-                    : user.profession}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.infoMain}>
-            <View style={styles.infoCont}>
-              <View style={[styles.infoIconCont, {backgroundColor: '#f2276e'}]}>
-                <Mobile name="mobile" size={24} style={{color: 'white'}} />
-              </View>
-              <View style={styles.infoText}>
-                <Text style={styles.infoSmall_Text}>Mobile</Text>
-                <Text style={styles.infoLarge_Text}>{user.mobile}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        
-      </View>
-    </ScrollView>
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        handleBackPress
+      );
+      return () => subscription.remove();
+    }, [handleBackPress])
   );
-}
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <LinearGradient
+          colors={["#774BBC", "#5D01AA"]}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerContent}>
+            <Image
+              source={require("../../assets/wave.png")}
+              style={styles.waveImage}
+              resizeMode="cover"
+            />
+          </View>
+        </LinearGradient>
+
+        <View style={styles.profileSection}>
+          <Avatar.Image
+            size={120}
+            source={{ uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${user.profileImage}` }}
+            style={styles.avatar}
+          />
+          <Text style={styles.userName}>{user?.name || "User"}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <InfoItem
+            icon={
+              <MaterialCommunityIcons
+                name="email"
+                size={22}
+                style={{ color: "white" }}
+              />
+            }
+            label="Email"
+            value={user?.email}
+            color="#FF9500"
+          />
+
+          <InfoItem
+            icon={
+              <Foundation
+                name="torsos-male-female"
+                size={22}
+                style={{ color: "white" }}
+              />
+            }
+            label="Gender"
+            value={user?.gender}
+            color="#0D7313"
+          />
+
+          <InfoItem
+            icon={
+              <AntDesign name="profile" size={22} style={{ color: "white" }} />
+            }
+            label="Profession"
+            value={user?.profession || "Driver"}
+            color="#774BBC"
+          />
+
+          <InfoItem
+            icon={
+              <Entypo name="mobile" size={22} style={{ color: "white" }} />
+            }
+            label="Mobile"
+            value={user?.mobile}
+            color="#F2276E"
+          />
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  editIcon: {
-    zIndex: 1,
-    color: 'white',
-    position: 'absolute',
-    right: 2,
-    margin: 15,
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
   },
-  backIcon: {
-    zIndex: 1,
-    color: 'white',
-    position: 'absolute',
-    left: 2,
-    margin: 15,
+  scrollContent: {
+    flexGrow: 1,
+  },
+  headerGradient: {
+    height: 180,
+    width: "100%",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerContent: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  waveImage: {
+    width: "100%",
+    height: "100%",
+    opacity: 0.3,
+  },
+  profileSection: {
+    alignItems: "center",
+    marginTop: -60,
+    paddingBottom: 20,
   },
   avatar: {
-    borderRadius: 100,
-    marginTop: -250,
-    // marginLeft: 105,
-    backgroundColor: 'white',
-    height: 200,
-    width: 200,
-    padding: 10,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    elevation: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "white",
+    borderWidth: 4,
+    borderColor: "white",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  // 420475
-  nameText: {
-    color: 'black',
-    fontSize: 28,
-
-    fontStyle: 'normal',
-    fontFamily: 'Open Sans',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  bookCountMain: {
-    borderColor: '#b0b0b0',
-    borderWidth: 1,
-    marginTop: 18,
-    marginHorizontal: 20,
-
-    borderRadius: 20,
-    flexDirection: 'row',
-    width: '88%',
-  },
-  bookCount: {
-    width: '50%',
-    borderColor: '#b0b0b0',
-    borderRightWidth: 1,
-    flexDirection: 'column',
-    paddingHorizontal: 10,
-    paddingVertical: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookCountNum: {
-    color: '#5D01AA',
-    fontSize: 34,
-    fontWeight: '800',
-  },
-  bookCountText: {color: '#b3b3b3', fontSize: 14, fontWeight: '500'},
-  infoMain: {
-    marginTop: 10,
-  },
-  infoCont: {
-    width: '100%',
-    flexDirection: 'row',
-  },
-  infoIconCont: {
-    justifyContent: 'center',
-    height: 40,
-    width: 40,
-    borderRadius: 20,
-
-    alignItems: 'center',
-    elevation: -5,
-    borderColor: 'black',
-    backgroundColor: 'black',
-  },
-
-  infoText: {
-    width: '80%',
-    flexDirection: 'column',
-    marginLeft: 25,
-    borderBottomWidth: 1,
-    paddingBottom: 10,
-    borderColor: '#e6e6e6',
-  },
-  infoSmall_Text: {
-    fontSize: 13,
-    color: '#b3b3b3',
-    fontWeight: '500',
-  },
-  infoLarge_Text: {
-    color: 'black',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  booksUploadedMain: {
-    paddingHorizontal: 10,
-    paddingBottom: 30,
-    marginTop: 20,
-  },
-  flatlistDiv: {
-    borderRadius: 15,
-    paddingHorizontal: 10,
-  },
-  booksUploadedText: {
-    fontSize: 26,
-    color: 'black',
-    fontWeight: '700',
-    paddingLeft: 20,
-    paddingBottom: 8,
-  },
-  booksUploadedCard: {
-    flexDirection: 'row',
-    width: '100%',
-    marginTop: 9,
-    marginBottom: 9,
-
-    backgroundColor: '#f2f2f2',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    borderRadius: 15,
-    elevation: 3,
-  },
-  booksUploadedImgDiv: {
-    width: '28%',
-  },
-  booksUploadedImg: {
-    width: '100%',
-    height: 120,
-    borderRadius: 15,
-  },
-  cardMidDiv: {
-    paddingHorizontal: 10,
-    width: '55%',
-    position: 'relative',
-  },
-  approvedText: {
-    fontSize: 12,
-    color: '#0d7313',
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  cardBookNameText: {
+  userName: {
     fontSize: 24,
-    color: 'black',
-    fontWeight: '700',
-    marginTop: 2,
+    color: "#333",
+    fontWeight: "700",
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
-  cardBookAuthor: {
-    fontSize: 14,
-    color: 'black',
-    fontWeight: '600',
-    marginTop: 1,
+  infoSection: {
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 30,
   },
-  cardRating: {
-    position: 'absolute',
-    bottom: 0,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 16,
+    marginVertical: 8,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  cardRatingCount: {
-    fontSize: 14,
-    marginTop: -2,
-    paddingLeft: 4,
-    color: '#303030',
-  },
-  cardEditDiv: {
-    width: '17%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardEditBtn: {
-    height: 44,
+  iconContainer: {
     width: 44,
-    backgroundColor: '#774BBC',
+    height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  footer: {
-    padding: 10,
-    justifyContent: 'center',
-
-    flexDirection: 'row',
+  infoContent: {
+    marginLeft: 16,
+    flex: 1,
   },
-  loadMoreBtn: {
-    padding: 10,
-    backgroundColor: '#f5a002',
-    borderRadius: 4,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: 'white',
-    paddingHorizontal: 20,
+  infoLabel: {
+    fontSize: 12,
+    color: "#777",
+    marginBottom: 2,
+    fontWeight: "500",
   },
-  btnText: {
-    color: 'white',
-    fontSize: 15,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  refreshControl: {
-    marginTop: 90, // Adjust this value based on how much you want to pull down
+  infoValue: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "600",
   },
 });
 

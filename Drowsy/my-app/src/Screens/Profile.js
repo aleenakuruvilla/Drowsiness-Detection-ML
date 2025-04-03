@@ -1,19 +1,60 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Image, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ShowToast } from '../components/Toast.js';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  RefreshControl,
+  KeyboardAvoidingView,
+  ActivityIndicator,
+} from "react-native";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ShowToast } from "../components/Toast.js";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
-function ProfileScreen(props) {
+const FormField = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry = false,
+  editable = true,
+  keyboardType = "default",
+}) => (
+  <View style={styles.inputWrapper}>
+    <View style={styles.inputGroup}>
+      {icon}
+      <TextInput
+        style={styles.inputBox}
+        placeholder={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secureTextEntry}
+        editable={editable}
+        keyboardType={keyboardType}
+        placeholderTextColor="#999"
+      />
+    </View>
+  </View>
+);
+
+function ProfileScreen() {
   const [userData, setUserData] = useState({});
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('*******');
-  const [mobile, setMobile] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("********");
+  const [newPassword, setNewPassword] = useState("");
+  const [mobile, setMobile] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -22,20 +63,34 @@ function ProfileScreen(props) {
 
   useEffect(() => {
     if (userData) {
-      setName(userData.name || '');
-      setEmail(userData.email || '');
-      setPassword(''); 
-      setMobile(userData.mobile || '');
+      setName(userData.name || "");
+      setEmail(userData.email || "");
+      setCurrentPassword("********");
+      setMobile(userData.mobile || "");
     }
   }, [userData]);
 
   const getData = async () => {
     try {
+      setIsLoading(true);
       const token = await AsyncStorage.getItem("token");
-      const res = await axios.post(`${process.env.EXPO_PUBLIC_BACKEND_URL}/userdata`, { token });
+      if (!token) {
+        ShowToast("error", "You're not logged in");
+        navigation.navigate("Login");
+        return;
+      }
+
+      const res = await axios.post(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/userdata`,
+        { token }
+      );
+
       setUserData(res.data.data);
     } catch (err) {
       console.error("Error fetching data", err);
+      ShowToast("error", "Failed to load profile data");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,201 +98,362 @@ function ProfileScreen(props) {
     let tempErrors = {};
     let isValid = true;
 
-    if (!/^[A-Za-z]/.test(name.trim())) {
-      tempErrors['name'] = "Name must start with an alphabet";
+    if (!name.trim()) {
+      tempErrors["name"] = "Name is required";
       isValid = false;
-    }
-
-    const emailRegex = /^[^\s@]+@gmail\.com$/;
-    if (!emailRegex.test(email)) {
-      tempErrors['email'] = "Email must be a valid @gmail.com address";
-      isValid = false;
-    }
-
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
-    if (password.length > 0 && !passwordRegex.test(password)) {
-      tempErrors['password'] = "Password must be at least 6 characters long, contain 1 uppercase letter, 1 lowercase letter, and 1 number";
+    } else if (!/^[A-Za-z]/.test(name.trim())) {
+      tempErrors["name"] = "Name must start with a letter";
       isValid = false;
     }
 
     const mobileRegex = /^[789]\d{9}$/;
-    if (!mobileRegex.test(mobile)) {
-      tempErrors['mobile'] = "Invalid mobile number. Must be 10 digits and start with 7, 8, or 9";
+    if (!mobile.trim()) {
+      tempErrors["mobile"] = "Mobile number is required";
       isValid = false;
+    } else if (!mobileRegex.test(mobile)) {
+      tempErrors["mobile"] =
+        "Invalid mobile number (10 digits, start with 7, 8, or 9)";
+      isValid = false;
+    }
+
+    if (showPasswordFields && newPassword) {
+      if (newPassword.length < 8) {
+        tempErrors["newPassword"] = "Password must be at least 8 characters";
+        isValid = false;
+      } else if (!/[A-Z]/.test(newPassword)) {
+        tempErrors["newPassword"] =
+          "Password must contain at least one uppercase letter";
+        isValid = false;
+      } else if (!/[0-9]/.test(newPassword)) {
+        tempErrors["newPassword"] = "Password must contain at least one number";
+        isValid = false;
+      }
     }
 
     setErrors(tempErrors);
     return isValid;
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (validateFields()) {
-      axios.post(`${process.env.EXPO_PUBLIC_BACKEND}/updateuser`, { name, email, password, mobile })
-        .then((res) => {
-          ShowToast('success', "Profile updated successfully!!");
-          navigation.navigate('Home');
-        })
-        .catch((err) => {
-          ShowToast('error', "Couldn't update the Profile");
-        });
-    } else {
-      ShowToast('error', "Please correct the errors before submitting");
+      try {
+        setIsLoading(true);
+        const token = await AsyncStorage.getItem("token");
+
+        const updateData = {
+          token,
+          name,
+          mobile,
+        };
+
+        if (showPasswordFields && newPassword) {
+          updateData.password = newPassword;
+        }
+
+        await axios.post(
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/updateuser`,
+          updateData
+        );
+
+        ShowToast("success", "Profile updated successfully!");
+
+        if (showPasswordFields) {
+          setNewPassword("");
+          setShowPasswordFields(false);
+        }
+
+        navigation.navigate("Home");
+      } catch (err) {
+        console.error("Update error:", err);
+        ShowToast("error", "Couldn't update the profile");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await getData();
     setRefreshing(false);
+  }, []);
+
+  const togglePasswordFields = () => {
+    setShowPasswordFields(!showPasswordFields);
+    if (showPasswordFields) {
+      setNewPassword("");
+      setErrors({ ...errors, newPassword: null });
+    }
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8a2be2" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-        />
-      }
-      style={profileStyles.scrollViewContainer}
-    >
-      <View style={profileStyles.profileContainer}>
-        <View style={profileStyles.centered}>
+    <KeyboardAvoidingView behavior={"height"} style={styles.container}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.profileImageContainer}>
           <Image
-            source={{ uri: "https://img.freepik.com/premium-vector/system-software-update-illustration-design-concept-illustration-websites-landing-pages-mobile-applications-posters-banners_108061-821.jpg?semt=ais_hybrid" }}
-            style={profileStyles.profileImage}
+            source={{
+              uri: "https://img.freepik.com/premium-vector/system-software-update-illustration-design-concept-illustration-websites-landing-pages-mobile-applications-posters-banners_108061-821.jpg?semt=ais_hybrid",
+            }}
+            style={styles.profileImage}
           />
-          {/* <Text style={profileStyles.profileName}>{name || "User Name"}</Text> */}
         </View>
 
-        {/* Name Input */}
-        <View style={profileStyles.inputGroup}>
-          <Ionicons name="person-circle-outline" size={24} color="purple" style={profileStyles.icon} />
-          <TextInput
-            style={profileStyles.inputBox}
+        <View style={styles.formContainer}>
+          <FormField
+            icon={
+              <Ionicons
+                name="person"
+                size={20}
+                color="#8a2be2"
+                style={styles.icon}
+              />
+            }
             placeholder="Enter your name"
             value={name}
-            onChangeText={(text) => setName(text)}
+            onChangeText={setName}
           />
-        </View>
-        {errors.name ? <Text style={profileStyles.errorText}>{errors.name}</Text> : null}
+          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-        <View style={profileStyles.inputGroup}>
-  <MaterialIcons name="email" size={21} color="purple" style={profileStyles.icon} />
-  <TextInput
-    style={profileStyles.inputBox}
-    placeholder="Enter your email"
-    value={email}
-    editable={false}  // Make the email field non-editable
-  />
-</View>
-{errors.email ? <Text style={profileStyles.errorText}>{errors.email}</Text> : null}
+          <FormField
+            icon={
+              <MaterialIcons
+                name="email"
+                size={20}
+                color="#8a2be2"
+                style={styles.icon}
+              />
+            }
+            placeholder="Email address"
+            value={email}
+            editable={false}
+          />
 
-       {/* Password Input (Non-Editable) */}
-<View style={profileStyles.inputGroup}>
-  <FontAwesome5 name="lock" size={20} color="purple" style={profileStyles.icon} />
-  <TextInput
-    style={profileStyles.inputBox}
-    placeholder="******"
-    secureTextEntry={true}
-    value={password}
-    editable={false}  // Make the password field non-editable
-  />
-</View>
-{errors.password ? <Text style={profileStyles.errorText}>{errors.password}</Text> : null}
+          <FormField
+            icon={
+              <FontAwesome5
+                name="lock"
+                size={20}
+                color="#8a2be2"
+                style={styles.icon}
+              />
+            }
+            placeholder="Current password"
+            value={currentPassword}
+            secureTextEntry={true}
+            editable={false}
+          />
 
-        {/* Mobile Input */}
-        <View style={profileStyles.inputGroup}>
-          <Ionicons name="call" size={20} color="purple" style={profileStyles.icon} />
-          <TextInput
-            style={profileStyles.inputBox}
+          <TouchableOpacity
+            style={styles.passwordToggleButton}
+            onPress={togglePasswordFields}
+          >
+            <Text style={styles.passwordToggleText}>
+              {showPasswordFields
+                ? "Cancel Password Change"
+                : "Change Password"}
+            </Text>
+          </TouchableOpacity>
+
+          {showPasswordFields && (
+            <>
+              <FormField
+                icon={
+                  <FontAwesome5
+                    name="key"
+                    size={20}
+                    color="#8a2be2"
+                    style={styles.icon}
+                  />
+                }
+                placeholder="Enter new password"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={true}
+              />
+              {errors.newPassword && (
+                <Text style={styles.errorText}>{errors.newPassword}</Text>
+              )}
+            </>
+          )}
+
+          <FormField
+            icon={
+              <Ionicons
+                name="call"
+                size={20}
+                color="#8a2be2"
+                style={styles.icon}
+              />
+            }
             placeholder="Enter your mobile number"
             value={mobile}
-            onChangeText={(text) => setMobile(text)}
-            keyboardType='numeric'
+            onChangeText={setMobile}
+            keyboardType="numeric"
           />
-        </View>
-        {errors.mobile ? <Text style={profileStyles.errorText}>{errors.mobile}</Text> : null}
+          {errors.mobile && (
+            <Text style={styles.errorText}>{errors.mobile}</Text>
+          )}
 
-        {/* Update Button */}
-        <TouchableOpacity style={profileStyles.updateButton} onPress={handleUpdate}>
-          <Text style={profileStyles.buttonText}>Update Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <TouchableOpacity
+            style={styles.updateButton}
+            onPress={handleUpdate}
+            disabled={isLoading}
+          >
+            <LinearGradient
+              colors={["#8a2be2", "#9400d3"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>
+                {isLoading ? "Updating..." : "Update Profile"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-const profileStyles = StyleSheet.create({
-  scrollViewContainer: {
-    backgroundColor: '#g9f9g0',
-  },
-  profileContainer: {
+const styles = StyleSheet.create({
+  container: {
     flex: 1,
-    marginBottom: 20,
-    marginLeft:20,
-    marginRight:20,
-    justifyContent: 'center',
+    backgroundColor: "#f8f9fa",
   },
-  centered: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 30,
+  },
+  header: {
+    width: "100%",
+    overflow: "hidden",
+  },
+  headerGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
+    textAlign: "center",
+  },
+  profileImageContainer: {
+    alignItems: "center",
+    marginTop: 20,
     marginBottom: 30,
   },
   profileImage: {
-    height: 275,
-    width: 350,
-    // borderTopLeftRadius:20,
-    // borderTopRightRadius:20,
-    borderBottomLeftRadius:20,
-    borderBottomRightRadius:20,
-    marginBottom: -35,
+    height: 200,
+    width: "85%",
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: "white",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  profileName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+  formContainer: {
+    paddingHorizontal: 20,
   },
-
-  icon: {
-    marginRight: 10,
+  inputWrapper: {
+    marginBottom: 16,
   },
   inputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    elevation: 3,
-    marginBottom: 15,
-    borderWidth: 1, 
-    borderColor: '#4B0082', // Border color
-    padding: 18, 
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: "#6200ee",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  icon: {
+    marginRight: 12,
   },
   inputBox: {
     flex: 1,
-    backgroundColor: "#fff",
-
+    color: "#333",
+    fontSize: 16,
+    paddingVertical: 4,
   },
   errorText: {
-    color: 'red',
-    fontSize: 14,
-    marginBottom: 10, // Ensure space between error and next input
+    color: "#e53935",
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 8,
+    marginLeft: 16,
   },
   updateButton: {
-    backgroundColor: 'purple',
-    borderRadius: 50,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    alignSelf: 'center',
-    shadowColor: "#6200EE",
-    shadowOffset: { width: 0, height: 4 },
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#6200ee",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 5,
   },
+  buttonGradient: {
+    paddingVertical: 16,
+    alignItems: "center",
+  },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  passwordToggleButton: {
+    alignItems: "flex-end",
+    marginBottom: 16,
+    marginTop: -8,
+  },
+  passwordToggleText: {
+    color: "#8a2be2",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });
 

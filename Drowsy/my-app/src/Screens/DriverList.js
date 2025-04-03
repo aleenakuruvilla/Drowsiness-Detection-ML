@@ -13,7 +13,8 @@ import ShowToast from "../components/Toast";
 import { useUser } from "../context/UserContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function DriverList() {
+export default function DriverList({ route }) {
+  const { targetLocation } = route.params;
   const { user } = useUser();
   const [drivers, setDrivers] = useState([]);
   const [location, setLocation] = useState({});
@@ -30,15 +31,15 @@ export default function DriverList() {
 
   const getCurrentLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      setErrorMsg('Permission to access location was denied');
+    if (status !== "granted") {
+      setErrorMsg("Permission to access location was denied");
       return;
     }
 
     let currentLocation = await Location.getCurrentPositionAsync({});
     console.log(currentLocation);
     setLocation(currentLocation.coords);
-  }
+  };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const toRadians = (deg) => (deg * Math.PI) / 180;
@@ -50,9 +51,9 @@ export default function DriverList() {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -62,7 +63,7 @@ export default function DriverList() {
   const findDrivers = async () => {
     setLoading(true);
     const driverRes = await axios.get(
-      `${process.env.EXPO_PUBLIC_BACKEND_URL}/get-all-user`,
+      `${process.env.EXPO_PUBLIC_BACKEND_URL}/get-all-workers`
     );
     if (driverRes.data.status !== "Ok") {
       ShowToast("error", "Failed to get drivers");
@@ -79,12 +80,15 @@ export default function DriverList() {
         location.latitude,
         location.longitude,
         item.latitude,
-        item.longitude,
+        item.longitude
       );
       return distance <= RADIUS_IN_KM;
     });
-    console.log("driver test: ", filtered);
-    setDrivers(driversList);
+
+    const filteredDriverList = driversList.filter(
+      (item) => item._id !== user._id
+    );
+    setDrivers(filteredDriverList);
     setLoading(false);
   };
 
@@ -110,6 +114,7 @@ export default function DriverList() {
         senderId: `${user._id}`,
         userId: `${item._id}`,
         profileImage: `${user.profileImage}`,
+        targetLocation: targetLocation,
         confirmation: "",
       };
 
@@ -121,7 +126,7 @@ export default function DriverList() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       if (res.status !== 200) {
@@ -141,7 +146,12 @@ export default function DriverList() {
 
   const renderDriverCard = ({ item, index }) => (
     <View style={styles.profileConatiner}>
-      <Image source={{ uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${item.profileImage}` }} style={styles.profileImage} />
+      <Image
+        source={{
+          uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/${item.profileImage}`,
+        }}
+        style={styles.profileImage}
+      />
       <View style={{ marginLeft: 15 }}>
         <Text style={styles.profileNameText}>{item.name}</Text>
         <Text style={styles.profileSubText}>{item.gender}</Text>
